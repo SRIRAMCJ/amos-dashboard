@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  company     String?
+  phone       String?
+  vertical    String?   // Factories, Schools/Colleges, Government, Global Enterprises
+  source      String?   // Web, Referral, LinkedIn, Cold Outreach, AMOS
+  status      String   @default("New") // New, Contacted, Qualified, Proposal, Closed
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OutreachEmail {
+  id          String   @id @default(cuid())
+  toName      String
+  toEmail     String
+  subject     String
+  body        String
+  status      String   @default("Draft") // Draft, Sent, Scheduled, Failed
+  leadId      String?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SocialPost {
+  id          String   @id @default(cuid())
+  platform    String   // LinkedIn, Twitter
+  content     String
+  status      String   @default("Draft") // Draft, Published, Scheduled, Failed
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  engagement  String?  // JSON string for likes, comments, shares
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  seoKeywords String?
+  vertical    String?
+  status      String   @default("Draft") // Draft, Published, Scheduled
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String   // lead_created, email_sent, post_published, blog_written, search_performed, chat_command
+  description String
+  metadata    String?  // JSON string for extra data
+  createdAt   DateTime @default(now())
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  messages  String   // JSON array of chat messages
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
