@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import ZAI from 'z-ai-web-dev-sdk';
+import { chatCompletion, getAIProvider } from '@/lib/ai-provider';
 
 const GENERATION_PROMPTS: Record<string, string> = {
   email: `You are AMOS, the Autonomous Marketing Operating System for Madras MindWorks (AR/VR/AI solutions, Chennai, India). Write a professional cold outreach email for AR/VR services. The email should be:
@@ -40,6 +40,70 @@ Context: {context}`,
 Context: {context}`,
 };
 
+// Fallback content when AI is not available
+const FALLBACK_CONTENT: Record<string, string> = {
+  email: `Subject: Transform Your Operations with AR/VR Solutions
+
+Dear [Recipient Name],
+
+I hope this message finds you well. I'm reaching out from Madras MindWorks, a Chennai-based AR/VR/AI solutions company.
+
+We help organizations like yours leverage immersive technology to:
+• Reduce training costs by up to 70% with VR simulations
+• Improve maintenance efficiency with AR-guided procedures
+• Create engaging customer experiences with interactive 3D content
+
+I'd love to schedule a brief 15-minute call to explore how AR/VR could benefit your specific operations.
+
+Would next Tuesday or Wednesday work for you?
+
+Best regards,
+[Your Name]
+Madras MindWorks
+www.madrasmindworks.com`,
+
+  social_linkedin: `🏭 Is your factory still using 2D manuals for maintenance training?
+
+At Madras MindWorks, we're helping manufacturing companies in India transition to AR-guided maintenance and VR training simulations.
+
+The results speak for themselves:
+✅ 70% reduction in training time
+✅ 45% fewer on-site errors
+✅ 3x faster onboarding for new technicians
+
+AR/VR isn't the future — it's the present. Companies that adopt early will have a significant competitive advantage.
+
+#AR #VR #Manufacturing #Industry40 #Training #DigitalTransformation #MadrasMindWorks`,
+
+  social_twitter: `AR/VR in Indian manufacturing is no longer a novelty — it's a competitive necessity. Factories using VR training see 70% faster onboarding and 45% fewer errors. 🏭✨ #AR #VR #Manufacturing #India`,
+
+  blog: `# How AR/VR is Transforming Indian Manufacturing in 2025
+
+## The Manufacturing Revolution is Here
+
+Indian manufacturing is undergoing a dramatic transformation, driven by augmented reality (AR) and virtual reality (VR) technologies. From Chennai's automotive hubs to Pune's industrial corridors, companies are discovering that immersive technology isn't just a buzzword — it's a practical tool delivering measurable ROI.
+
+## AR-Guided Maintenance: A Game Changer
+
+Traditional maintenance procedures rely on thick manuals and experienced technicians. AR-guided maintenance overlays digital instructions directly onto physical equipment, allowing even newer technicians to perform complex procedures with confidence.
+
+### Key Benefits:
+- **70% reduction in training time** — New technicians become productive faster
+- **45% fewer maintenance errors** — Step-by-step visual guidance reduces mistakes
+- **30% reduction in downtime** — Faster, more accurate repairs
+
+## VR Training Simulations
+
+Virtual reality creates fully immersive training environments where workers can practice procedures without risk. From welding simulations to assembly line training, VR provides hands-on experience in a safe, repeatable setting.
+
+## Getting Started with AR/VR
+
+For organizations considering AR/VR adoption, Madras MindWorks recommends starting with a targeted pilot project. Identify one high-impact use case — such as maintenance training or safety demonstrations — and measure the results before scaling.
+
+---
+*Madras MindWorks — AR/VR/AI Solutions, Chennai, India*`,
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -56,47 +120,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const zai = await ZAI.create();
+    const { provider } = await getAIProvider();
 
-    // Determine the prompt key
-    let promptKey: string;
-    if (type === 'social') {
-      promptKey = platform === 'Twitter' ? 'social_twitter' : 'social_linkedin';
-    } else {
-      promptKey = type;
-    }
-
-    const systemPrompt = GENERATION_PROMPTS[promptKey]?.replace('{context}', context) || GENERATION_PROMPTS.email.replace('{context}', context);
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: systemPrompt },
-        { role: 'user', content: `Generate the ${type} content based on the provided context.` },
-      ],
-      thinking: { type: 'disabled' },
-    });
-
-    const content = completion.choices[0]?.message?.content || 'Failed to generate content.';
-
-    // For blog posts, try to extract a title from the first line
+    let content: string;
     let title: string | undefined;
-    if (type === 'blog') {
-      const lines = content.split('\n').filter((l: string) => l.trim());
-      if (lines.length > 0) {
-        title = lines[0].replace(/^#+\s*/, '').trim();
+    let usedFallback = false;
+
+    if (provider !== 'none') {
+      // AI is available (Groq or HuggingFace)
+      let promptKey: string;
+      if (type === 'social') {
+        promptKey = platform === 'Twitter' ? 'social_twitter' : 'social_linkedin';
+      } else {
+        promptKey = type;
       }
+
+      const systemPrompt = GENERATION_PROMPTS[promptKey]?.replace('{context}', context) || GENERATION_PROMPTS.email.replace('{context}', context);
+
+      try {
+        const { content: generatedContent } = await chatCompletion([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Generate the ${type} content based on the provided context.` },
+        ]);
+        content = generatedContent;
+      } catch {
+        // AI call failed, fall back to static content
+        let fallbackKey: string;
+        if (type === 'social') {
+          fallbackKey = platform === 'Twitter' ? 'social_twitter' : 'social_linkedin';
+        } else {
+          fallbackKey = type;
+        }
+        content = FALLBACK_CONTENT[fallbackKey] || FALLBACK_CONTENT.email;
+        usedFallback = true;
+      }
+
+      if (type === 'blog') {
+        const lines = content.split('\n').filter((l: string) => l.trim());
+        if (lines.length > 0) {
+          title = lines[0].replace(/^#+\s*/, '').trim();
+        }
+      }
+    } else {
+      // No AI available — use static fallback
+      let fallbackKey: string;
+      if (type === 'social') {
+        fallbackKey = platform === 'Twitter' ? 'social_twitter' : 'social_linkedin';
+      } else {
+        fallbackKey = type;
+      }
+      content = FALLBACK_CONTENT[fallbackKey] || FALLBACK_CONTENT.email;
+      title = type === 'blog' ? 'How AR/VR is Transforming Indian Manufacturing in 2025' : undefined;
+      usedFallback = true;
     }
 
-    // Log the activity
-    await db.activityLog.create({
-      data: {
-        action: 'ai_generated',
-        description: `AI generated ${type} content${platform ? ` for ${platform}` : ''}`,
-        metadata: JSON.stringify({ type, platform, title }),
-      },
-    });
+    // Log the activity (best effort)
+    try {
+      await db.activityLog.create({
+        data: {
+          action: 'ai_generated',
+          description: `AI generated ${type} content${platform ? ` for ${platform}` : ''}`,
+          metadata: JSON.stringify({ type, platform, title, provider, fallback: usedFallback }),
+        },
+      });
+    } catch { /* ignore */ }
 
-    return NextResponse.json({ content, title });
+    return NextResponse.json({ content, title, fallback: usedFallback, provider });
   } catch (error) {
     console.error('Error generating AI content:', error);
     return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });

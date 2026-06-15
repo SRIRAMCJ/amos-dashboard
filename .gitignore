@@ -67,4 +67,5 @@ screenshot-*.png
 worklog.md
 
 # Z-ai internal
-.zscripts/
+.zscripts/.env
+.env

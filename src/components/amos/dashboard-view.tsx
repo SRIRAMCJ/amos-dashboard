@@ -183,8 +183,8 @@ export default function DashboardView() {
           const data = await activitiesRes.json()
           setActivities(data.slice(0, 5))
         }
-      } catch {
-        // Silently handle — stats will remain null, skeleton shown
+      } catch (err) {
+        console.error('Dashboard fetch error:', err)
       }
     }
     fetchData()

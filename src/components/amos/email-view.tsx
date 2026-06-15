@@ -185,6 +185,9 @@ export default function EmailView() {
       setValue('body', bodyText || generatedContent)
 
       toast.success('Email generated successfully')
+      if (data.fallback) {
+        toast.info('AI engine unavailable — using template content. Customize it to your needs!')
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to generate email')
     } finally {

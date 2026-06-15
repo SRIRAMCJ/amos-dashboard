@@ -87,12 +87,20 @@ export function ChatView() {
       })
       const data = await res.json()
       if (data.sessionId) setChatSessionId(data.sessionId)
-      addChatMessage({
-        role: 'assistant',
-        content: data.response,
-        timestamp: Date.now(),
-        searched: !!data.searchPerformed,
-      })
+      if (data.error && !data.response) {
+        addChatMessage({
+          role: 'assistant',
+          content: `⚠️ ${data.error}. Please try again.`,
+          timestamp: Date.now(),
+        })
+      } else {
+        addChatMessage({
+          role: 'assistant',
+          content: data.response || 'No response received.',
+          timestamp: Date.now(),
+          searched: !!data.searchPerformed,
+        })
+      }
     } catch {
       addChatMessage({
         role: 'assistant',

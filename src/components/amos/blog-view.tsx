@@ -68,10 +68,12 @@ export function BlogView() {
     try {
       const params = statusFilter !== 'all' ? `?status=${statusFilter}` : ''
       const res = await fetch(`/api/blogs${params}`)
+      if (!res.ok) throw new Error('Failed to fetch blogs')
       const data = await res.json()
       setBlogPosts(data || [])
     } catch {
       toast.error('Failed to load blogs.')
+      setBlogPosts([])
     } finally {
       setIsLoading(false)
     }
@@ -114,7 +116,11 @@ Keywords: ${keywords || 'AR, VR, XR, immersive technology'}`
         if (!title && extractedTitle.length > 5) {
           setTitle(extractedTitle)
         }
-        toast.success('Blog content generated successfully!')
+        if (data.fallback) {
+          toast.info('AI engine unavailable — using template content. Customize it to your needs!')
+        } else {
+          toast.success('Blog content generated successfully!')
+        }
       } else {
         toast.error('AI could not generate content. Please try again.')
       }

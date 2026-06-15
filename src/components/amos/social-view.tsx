@@ -93,6 +93,11 @@ export default function SocialView() {
     },
   })
 
+  const handlePlatformChange = (val: string) => {
+    setSelectedPlatform(val)
+    setValue('platform', val, { shouldValidate: true })
+  }
+
   const contentValue = watch('content') || ''
   const currentPlatform = (selectedPlatform || 'LinkedIn') as Platform
   const maxChars = PLATFORM_CONFIG[currentPlatform]?.maxChars || 3000
@@ -170,7 +175,11 @@ export default function SocialView() {
 
       const data = await res.json()
       setValue('content', data.content || '')
-      toast.success('Post content generated successfully')
+      if (data.fallback) {
+        toast.info('AI engine unavailable — using template content. Customize it to your needs!')
+      } else {
+        toast.success('Post content generated successfully')
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to generate content')
     } finally {
@@ -242,10 +251,7 @@ export default function SocialView() {
               </Label>
               <Select
                 value={selectedPlatform}
-                onValueChange={(val) => {
-                  setSelectedPlatform(val)
-                  setValue('platform', val)
-                }}
+                onValueChange={handlePlatformChange}
               >
                 <SelectTrigger id="post-platform" className="w-full sm:w-[240px]">
                   <SelectValue placeholder="Select platform" />

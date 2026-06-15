@@ -80,6 +80,7 @@ export default function LeadsView() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
@@ -259,10 +260,7 @@ export default function LeadsView() {
                   <Label htmlFor="lead-vertical">Vertical</Label>
                   <Select
                     onValueChange={(val) => {
-                      if (val === '__none__') {
-                        // reset to empty - we handle via form reset
-                        return
-                      }
+                      setValue('vertical', val === '__none__' ? '' : val)
                     }}
                   >
                     <SelectTrigger id="lead-vertical" className="w-full">
@@ -277,7 +275,6 @@ export default function LeadsView() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {/* Hidden input for react-hook-form */}
                   <input type="hidden" {...register('vertical')} />
                 </div>
 
@@ -286,9 +283,7 @@ export default function LeadsView() {
                   <Label htmlFor="lead-source">Source</Label>
                   <Select
                     onValueChange={(val) => {
-                      if (val === '__none__') {
-                        return
-                      }
+                      setValue('source', val === '__none__' ? '' : val)
                     }}
                   >
                     <SelectTrigger id="lead-source" className="w-full">

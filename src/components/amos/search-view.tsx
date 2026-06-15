@@ -21,7 +21,7 @@ const QUICK_CHIPS = [
 
 export function SearchView() {
   const { searchResults, setSearchResults, isSearching, setIsSearching } = useAmosStore()
-  const [query, setQuery] = useState('AR VR AI competitors India 2024')
+  const [query, setQuery] = useState('AR VR AI competitors India 2025')
 
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -37,9 +37,20 @@ export function SearchView() {
         body: JSON.stringify({ query: searchQuery })
       })
       const data = await res.json()
-      setSearchResults(data.results || [])
-      if (!data.results?.length) {
-        toast.info('No results found for this query.')
+      if (data.error) {
+        toast.error(data.error)
+        setSearchResults([])
+      } else {
+        setSearchResults(data.results || [])
+        if (data.aiAnalysis) {
+          toast.success('AI analysis complete')
+        }
+        if (data.fallback) {
+          toast.info('AI search requires a free GROQ_API_KEY or HF_TOKEN env var. Add it in Vercel settings.')
+        }
+        if (!data.results?.length && !data.fallback && !data.aiAnalysis) {
+          toast.info('No results found for this query.')
+        }
       }
     } catch {
       toast.error('Search failed. Please try again.')
@@ -173,43 +184,56 @@ function SearchResultCard({
   result: SearchResult
   truncateUrl: (url: string) => string
 }) {
+  const isAIAnalysis = result.url?.startsWith('ai-analysis://')
+  const Wrapper = isAIAnalysis ? 'div' : 'a'
+  const wrapperProps = isAIAnalysis
+    ? { className: 'block p-4' }
+    : { href: result.url, target: '_blank' as const, rel: 'noopener noreferrer', className: 'block p-4 hover:bg-accent/50 transition-colors' }
+
   return (
-    <a
-      href={result.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block p-4 hover:bg-accent/50 transition-colors"
-    >
+    <Wrapper {...wrapperProps}>
       <div className="space-y-1.5">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-medium text-sm leading-snug text-foreground hover:underline line-clamp-2">
             {result.name || 'Untitled'}
           </h3>
-          <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {result.favicon && (
-            <img
-              src={result.favicon}
-              alt=""
-              className="h-3.5 w-3.5 rounded-sm"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none'
-              }}
-            />
+          {!isAIAnalysis && (
+            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
           )}
-          <span className="truncate max-w-[300px]">{truncateUrl(result.url)}</span>
         </div>
 
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+        {!isAIAnalysis && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {result.favicon && (
+              <img
+                src={result.favicon}
+                alt=""
+                className="h-3.5 w-3.5 rounded-sm"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none'
+                }}
+              />
+            )}
+            <span className="truncate max-w-[300px]">{truncateUrl(result.url)}</span>
+          </div>
+        )}
+
+        <div className={cn(
+          'text-sm leading-relaxed',
+          isAIAnalysis ? 'text-foreground whitespace-pre-wrap line-clamp-[20]' : 'text-muted-foreground line-clamp-3'
+        )}>
           {result.snippet || 'No description available.'}
-        </p>
+        </div>
 
         <div className="flex items-center gap-2 pt-1">
           {result.host_name && (
             <Badge variant="secondary" className="text-xs font-normal">
               {result.host_name}
+            </Badge>
+          )}
+          {isAIAnalysis && (
+            <Badge variant="secondary" className="text-xs font-normal bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              AI Generated
             </Badge>
           )}
           {result.date && (
@@ -222,6 +246,6 @@ function SearchResultCard({
           )}
         </div>
       </div>
-    </a>
+    </Wrapper>
   )
 }
