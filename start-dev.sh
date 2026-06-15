@@ -1,10 +1,7 @@
-#!/bin/sh
+#!/bin/bash
+unset DATABASE_URL
+unset DIRECT_URL
 export DATABASE_URL="postgresql://neondb_owner:npg_ExbWfuIykY96@ep-muddy-shadow-aonbdse1-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 export DIRECT_URL="postgresql://neondb_owner:npg_ExbWfuIykY96@ep-muddy-shadow-aonbdse1.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 cd /home/z/my-project
-while true; do
-  echo "[$(date)] Starting dev server..." >> /home/z/my-project/dev.log
-  npx next dev -p 3000 >> /home/z/my-project/dev.log 2>&1
-  echo "[$(date)] Server exited, restarting in 3s..." >> /home/z/my-project/dev.log
-  sleep 3
-done
+exec npx next dev -p 3000
