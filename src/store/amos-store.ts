@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 // Types
-export type ActiveView = 'dashboard' | 'chat' | 'leads' | 'emails' | 'social' | 'search' | 'blogs' | 'activities'
+export type ActiveView = 'dashboard' | 'chat' | 'leads' | 'emails' | 'social' | 'search' | 'blogs' | 'activities' | 'settings'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

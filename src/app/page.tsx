@@ -12,6 +12,7 @@ import SocialView from '@/components/amos/social-view'
 import { SearchView } from '@/components/amos/search-view'
 import { BlogView } from '@/components/amos/blog-view'
 import { ActivityView } from '@/components/amos/activity-view'
+import { SettingsView } from '@/components/amos/settings-view'
 
 export default function AmosDashboard() {
   const activeView = useAmosStore((s) => s.activeView)
@@ -34,6 +35,8 @@ export default function AmosDashboard() {
         return <BlogView />
       case 'activities':
         return <ActivityView />
+      case 'settings':
+        return <SettingsView />
       default:
         return <DashboardView />
     }

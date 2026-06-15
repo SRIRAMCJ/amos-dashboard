@@ -19,6 +19,7 @@ const VIEW_TITLES: Record<string, string> = {
   search: 'Competitor Intel',
   blogs: 'Blog Writer',
   activities: 'Activity Log',
+  settings: 'Settings',
 }
 
 // View subtitle mapping
@@ -31,6 +32,7 @@ const VIEW_SUBTITLES: Record<string, string> = {
   search: 'Research competitors and market trends',
   blogs: 'Generate SEO-optimized blog content',
   activities: 'Track all system activities',
+  settings: 'Connect accounts and configure integrations',
 }
 
 interface DashboardHeaderProps {

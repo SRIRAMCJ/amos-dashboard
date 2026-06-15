@@ -10,6 +10,7 @@ import {
   Search,
   FileText,
   Activity,
+  Settings,
   ChevronsLeft,
   ChevronsRight,
   Glasses,
@@ -41,6 +42,7 @@ const NAV_ITEMS: { view: ActiveView; label: string; icon: React.ElementType }[] 
   { view: 'search', label: 'Competitor Intel', icon: Search },
   { view: 'blogs', label: 'Blog Writer', icon: FileText },
   { view: 'activities', label: 'Activity Log', icon: Activity },
+  { view: 'settings', label: 'Settings', icon: Settings },
 ]
 
 // Shared sidebar nav content (used by both desktop & mobile)
@@ -77,8 +79,9 @@ function SidebarNavContent({
       {/* Navigation Items */}
       <ScrollArea className="flex-1 px-2 py-3">
         <nav className="flex flex-col gap-1" role="navigation" aria-label="Main navigation">
-          {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+          {NAV_ITEMS.map(({ view, label, icon: Icon }, index) => {
             const isActive = activeView === view
+            const isSettings = view === 'settings'
 
             const button = (
               <button
@@ -112,16 +115,24 @@ function SidebarNavContent({
             // When collapsed on desktop, wrap in tooltip
             if (collapsed) {
               return (
-                <Tooltip key={view}>
-                  <TooltipTrigger asChild>{button}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {label}
-                  </TooltipContent>
-                </Tooltip>
+                <React.Fragment key={view}>
+                  {isSettings && <Separator className="bg-emerald-800/50 my-2" />}
+                  <Tooltip>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8}>
+                      {label}
+                    </TooltipContent>
+                  </Tooltip>
+                </React.Fragment>
               )
             }
 
-            return button
+            return (
+              <React.Fragment key={view}>
+                {isSettings && <Separator className="bg-emerald-800/50 my-2" />}
+                {button}
+              </React.Fragment>
+            )
           })}
         </nav>
       </ScrollArea>

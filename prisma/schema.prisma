@@ -73,3 +73,33 @@ model ChatSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model IntegrationSettings {
+  id            String   @id @default(cuid())
+  // Company Profile
+  companyName   String   @default("Madras MindWorks")
+  companyWebsite String?
+  companyTagline String?
+  // Email (SMTP)
+  smtpHost      String?
+  smtpPort      Int?
+  smtpEmail     String?
+  smtpPassword  String?
+  emailFromName String?
+  // LinkedIn
+  linkedinToken String?
+  linkedinPageId String?
+  linkedinProfileUrl String?
+  // Twitter/X
+  twitterApiKey String?
+  twitterApiSecret String?
+  twitterAccessToken String?
+  twitterAccessTokenSecret String?
+  twitterHandle String?
+  // Make.com Webhooks
+  makeEmailWebhook    String?
+  makeSocialWebhook   String?
+  makeCrmWebhook      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
