@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
+  Instagram,
+  Facebook,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -47,6 +49,10 @@ interface SettingsData {
   twitterAccessToken: string | null
   twitterAccessTokenSecret: string | null
   twitterHandle: string | null
+  instagramToken: string | null
+  instagramAccountId: string | null
+  facebookToken: string | null
+  facebookPageId: string | null
   makeEmailWebhook: string | null
   makeSocialWebhook: string | null
   makeCrmWebhook: string | null
@@ -70,6 +76,10 @@ const EMPTY_SETTINGS: SettingsData = {
   twitterAccessToken: '',
   twitterAccessTokenSecret: '',
   twitterHandle: '',
+  instagramToken: '',
+  instagramAccountId: '',
+  facebookToken: '',
+  facebookPageId: '',
   makeEmailWebhook: '',
   makeSocialWebhook: '',
   makeCrmWebhook: '',
@@ -263,9 +273,9 @@ export function SettingsView() {
         <div className="text-sm text-amber-800 space-y-1">
           <p className="font-medium">How integrations work</p>
           <p>
-            AMOS uses <strong>Make.com webhooks</strong> as the bridge between this dashboard and external services.
-            Add your Make.com webhook URLs below, then create scenarios in Make.com to handle email sending, social posting, and CRM updates.
-            API keys and tokens are stored locally and never shared.
+            AMOS connects directly to social media APIs to fetch analytics and can use
+            <strong> Make.com webhooks</strong> to publish content. API keys and tokens are stored locally and never shared.
+            Set up your credentials below, then go to <strong>Analytics</strong> to see live data.
           </p>
         </div>
       </div>
@@ -469,7 +479,81 @@ export function SettingsView() {
         </div>
       </SettingsSection>
 
-      {/* ── 5. Make.com Webhooks ───────────────────────────────────────────── */}
+      {/* ── 5. Instagram ──────────────────────────────────────────────── */}
+      <SettingsSection
+        icon={Instagram}
+        title="Instagram Integration"
+        description="Connect your Instagram Business/Creator account to fetch analytics."
+        badge={isFieldConfigured(settings.instagramToken) ? 'Connected' : 'Not Connected'}
+        badgeVariant={isFieldConfigured(settings.instagramToken) ? 'default' : 'outline'}
+        defaultOpen={false}
+      >
+        <PasswordInput
+          label="Facebook Page Access Token (with Instagram permissions)"
+          placeholder="Your long-lived Facebook Page access token"
+          value={settings.instagramToken || ''}
+          onChange={(val) => updateField('instagramToken', val)}
+          hint="Generate from Facebook Developer Console. Requires 'instagram_basic', 'instagram_content_publish', 'pages_show_list' permissions."
+        />
+        <div className="space-y-1.5">
+          <Label htmlFor="instagramAccountId" className="text-sm font-medium">Instagram Account ID (optional)</Label>
+          <Input
+            id="instagramAccountId"
+            placeholder="Auto-detected from your Facebook Page"
+            value={settings.instagramAccountId || ''}
+            onChange={(e) => updateField('instagramAccountId', e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave blank to auto-detect. AMOS will find your Instagram Business account linked to your Facebook Page.
+          </p>
+        </div>
+        <div className="rounded-lg border border-pink-200 bg-pink-50 p-3 text-xs text-pink-800 space-y-1">
+          <p className="font-medium">How to connect Instagram:</p>
+          <p>1. Go to <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">developers.facebook.com</a> and create an app.</p>
+          <p>2. Add Instagram Basic Display and Facebook Login products.</p>
+          <p>3. Convert your Page access token to a long-lived token.</p>
+          <p>4. Ensure your Instagram profile is set to Business or Creator in the app settings.</p>
+        </div>
+      </SettingsSection>
+
+      {/* ── 6. Facebook ───────────────────────────────────────────────────── */}
+      <SettingsSection
+        icon={Facebook}
+        title="Facebook Integration"
+        description="Connect your Facebook Page to fetch analytics and engagement data."
+        badge={isFieldConfigured(settings.facebookToken) ? 'Connected' : 'Not Connected'}
+        badgeVariant={isFieldConfigured(settings.facebookToken) ? 'default' : 'outline'}
+        defaultOpen={false}
+      >
+        <PasswordInput
+          label="Facebook User Access Token"
+          placeholder="Your Facebook access token with pages_read_engagement permission"
+          value={settings.facebookToken || ''}
+          onChange={(val) => updateField('facebookToken', val)}
+          hint="Requires 'pages_show_list', 'pages_read_engagement', 'pages_read_user_content' permissions."
+        />
+        <div className="space-y-1.5">
+          <Label htmlFor="facebookPageId" className="text-sm font-medium">Facebook Page ID (optional)</Label>
+          <Input
+            id="facebookPageId"
+            placeholder="Auto-detected from your account"
+            value={settings.facebookPageId || ''}
+            onChange={(e) => updateField('facebookPageId', e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Leave blank to auto-detect. AMOS will list your available Facebook Pages.
+          </p>
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 space-y-1">
+          <p className="font-medium">How to connect Facebook:</p>
+          <p>1. Go to <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">developers.facebook.com</a>.</p>
+          <p>2. Create an app with 'Facebook Login' product.</p>
+          <p>3. Add 'pages_show_list', 'pages_read_engagement' permissions.</p>
+          <p>4. Generate a user access token and paste it above.</p>
+        </div>
+      </SettingsSection>
+
+      {/* ── 7. Make.com Webhooks ───────────────────────────────────────────── */}
       <SettingsSection
         icon={Webhook}
         title="Make.com Webhooks"

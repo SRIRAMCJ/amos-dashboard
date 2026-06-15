@@ -96,10 +96,26 @@ model IntegrationSettings {
   twitterAccessToken String?
   twitterAccessTokenSecret String?
   twitterHandle String?
+  // Instagram
+  instagramToken String?
+  instagramAccountId String?
+  // Facebook
+  facebookToken String?
+  facebookPageId String?
   // Make.com Webhooks
   makeEmailWebhook    String?
   makeSocialWebhook   String?
   makeCrmWebhook      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model SocialAnalytics {
+  id          String   @id @default(cuid())
+  platform    String   // twitter, linkedin, instagram, facebook
+  dataType    String   // profile, posts, followers, engagement
+  rawData     String   // JSON string with full API response
+  summary     String?  // JSON string with parsed metrics
+  fetchedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
 }

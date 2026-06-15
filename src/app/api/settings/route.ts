@@ -22,6 +22,8 @@ export async function GET() {
       twitterApiSecret: settings.twitterApiSecret ? '••••••••' : null,
       twitterAccessToken: settings.twitterAccessToken ? '••••••••' : null,
       twitterAccessTokenSecret: settings.twitterAccessTokenSecret ? '••••••••' : null,
+      instagramToken: settings.instagramToken ? '••••••••' : null,
+      facebookToken: settings.facebookToken ? '••••••••' : null,
     }
 
     return NextResponse.json({ success: true, settings: masked })
@@ -48,6 +50,8 @@ export async function PUT(req: NextRequest) {
       'smtpHost', 'smtpPort', 'smtpEmail', 'smtpPassword', 'emailFromName',
       'linkedinToken', 'linkedinPageId', 'linkedinProfileUrl',
       'twitterApiKey', 'twitterApiSecret', 'twitterAccessToken', 'twitterAccessTokenSecret', 'twitterHandle',
+      'instagramToken', 'instagramAccountId',
+      'facebookToken', 'facebookPageId',
       'makeEmailWebhook', 'makeSocialWebhook', 'makeCrmWebhook',
     ] as const
 

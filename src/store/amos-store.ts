@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 // Types
-export type ActiveView = 'dashboard' | 'chat' | 'leads' | 'emails' | 'social' | 'search' | 'blogs' | 'activities' | 'settings'
+export type ActiveView = 'dashboard' | 'chat' | 'leads' | 'emails' | 'social' | 'analytics' | 'search' | 'blogs' | 'activities' | 'settings'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -90,6 +90,46 @@ export interface DashboardStats {
   totalActivities: number
 }
 
+export interface PlatformAnalytics {
+  platform: string
+  connected: boolean
+  profileName: string
+  profileHandle: string
+  profileAvatar?: string
+  profileUrl?: string
+  followers: number
+  following?: number
+  totalPosts: number
+  engagement: {
+    likes: number
+    comments: number
+    shares: number
+    impressions: number
+  }
+  recentPosts: {
+    id: string
+    text: string
+    createdAt: string
+    metrics: {
+      likes: number
+      comments: number
+      shares: number
+      impressions: number
+    }
+  }[]
+  error?: string
+}
+
+export interface AnalyticsSummary {
+  twitter: PlatformAnalytics | null
+  linkedin: PlatformAnalytics | null
+  instagram: PlatformAnalytics | null
+  facebook: PlatformAnalytics | null
+  lastFetched: string | null
+  fetching: boolean
+  error?: string
+}
+
 export interface AmosState {
   // Navigation
   activeView: ActiveView
@@ -127,6 +167,11 @@ export interface AmosState {
   setIsSearching: (searching: boolean) => void
   isGenerating: boolean
   setIsGenerating: (generating: boolean) => void
+
+  // Analytics
+  analytics: AnalyticsSummary
+  setAnalytics: (analytics: AnalyticsSummary) => void
+  setAnalyticsFetching: (fetching: boolean) => void
 }
 
 export const useAmosStore = create<AmosState>((set) => ({
@@ -168,4 +213,19 @@ export const useAmosStore = create<AmosState>((set) => ({
   setIsSearching: (searching) => set({ isSearching: searching }),
   isGenerating: false,
   setIsGenerating: (generating) => set({ isGenerating: generating }),
+
+  // Analytics
+  analytics: {
+    twitter: null,
+    linkedin: null,
+    instagram: null,
+    facebook: null,
+    lastFetched: null,
+    fetching: false,
+  },
+  setAnalytics: (analytics) => set({ analytics }),
+  setAnalyticsFetching: (fetching) =>
+    set((state) => ({
+      analytics: { ...state.analytics, fetching },
+    })),
 }))
