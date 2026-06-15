@@ -6,15 +6,17 @@ import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Send, Bot, User, RotateCcw, Sparkles } from 'lucide-react'
+import { Send, Bot, User, RotateCcw, Sparkles, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SUGGESTED_COMMANDS = [
-  'Find factories in Chennai needing AR demos',
+  'Find AR/VR tenders in Tamil Nadu government 2025',
+  'Research TVS Motor current AR/VR initiatives',
+  'List manufacturing companies in Chennai needing AR training',
   'Write a LinkedIn post about VR in education',
-  'Search AR/VR competitors in India',
-  'Create an outreach email for a school',
-  'Generate an SEO blog about AR maintenance',
+  'Search AR/VR competitors in India 2025',
+  'Create an outreach email for a school VR lab',
+  'Generate an SEO blog about AR maintenance training',
 ]
 
 function formatTime(ts: number): string {
@@ -89,6 +91,7 @@ export function ChatView() {
         role: 'assistant',
         content: data.response,
         timestamp: Date.now(),
+        searched: !!data.searchPerformed,
       })
     } catch {
       addChatMessage({
@@ -240,9 +243,17 @@ export function ChatView() {
                   <span className="whitespace-pre-wrap">{msg.content}</span>
                 )}
               </div>
-              <span className="text-[10px] text-muted-foreground px-1">
-                {formatTime(msg.timestamp)}
-              </span>
+              <div className="flex items-center gap-1.5 px-1">
+                {msg.searched && (
+                  <Badge variant="secondary" className="gap-1 text-[9px] px-1.5 py-0 h-4 font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
+                    <Search className="size-2.5" />
+                    Live search
+                  </Badge>
+                )}
+                <span className="text-[10px] text-muted-foreground">
+                  {formatTime(msg.timestamp)}
+                </span>
+              </div>
             </div>
 
             {/* User avatar */}

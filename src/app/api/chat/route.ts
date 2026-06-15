@@ -34,17 +34,19 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 // Keywords that should trigger web search
 const SEARCH_TRIGGERS = [
   // Client research
-  /(?:find|search|research|look up|look into|info about|details? about|tell me about|who are|what are|list of)\s+/i,
-  /(?:clients?|prospects?|companies?|enterprises?|organizations?|corporations?|industries?|factories?|schools?|colleges?|hospitals?|government)/i,
-  /(?:tender|procurement|rfp|rfa|eoi|expression of interest)/i,
+  /(?:find|search|research|look up|look into|info about|details? about|tell me about|who are|what are|list of|get me|show me|fetch|identify|discover)\s+/i,
+  /(?:clients?|prospects?|companies?|enterprises?|organizations?|corporations?|industries?|factories?|schools?|colleges?|hospitals?|government|leads?|requirements?|problem statements?)/i,
+  /(?:tender|procurement|rfp|rfa|eoi|expression of interest|rfq|proposal|bid)/i,
   // Specific company names (common Indian companies that might be AR/VR prospects)
   /(?:TVS|Tata|Reliance|Infosys|Wipro|Mahindra|Bajaj|Hero|Ashok Leyland|L&T|Hyundai|Ford|BMW|Audi|Mercedes|IIT|IIM|NIT|AIIMS|Apollo|Fortis|NTPC|BHEL|SAIL|HAL|BEL|ISRO|DRDO|DMRC|Metro|Smart City|Corporation|Municipal)/i,
   // Market & competitor
-  /(?:competitor|competitor|market (?:size|trend|report|analysis)|industry (?:report|overview))/i,
-  /(?:AR|VR|XR|augmented reality|virtual reality|extended reality|mixed reality|spatial computing|metaverse)\s+(?:market|industry|trend|adoption|growth)/i,
+  /(?:competitor|market (?:size|trend|report|analysis)|industry (?:report|overview))/i,
+  /(?:AR|VR|XR|augmented reality|virtual reality|extended reality|mixed reality|spatial computing|metaverse)\s+(?:market|industry|trend|adoption|growth|companies?|vendors?|providers?)/i,
   // Geography
   /(?:in (?:Chennai|Tamil Nadu|India|Bangalore|Karnataka|Hyderabad|Delhi|Mumbai|Pune|Kerala|Kolkata))/i,
   /(?:upcoming|latest|current|recent|new|active|ongoing)/i,
+  // Email / contact
+  /(?:email (?:id|address|of)|contact (?:info|details?|of)|who to (?:contact|reach|email))/i,
 ];
 
 function shouldTriggerSearch(message: string): boolean {
@@ -56,44 +58,111 @@ interface ChatMessage {
   content: string;
 }
 
-async function performWebSearch(query: string): Promise<string> {
+// Domain-relevant keywords to check search result quality
+const RELEVANCE_KEYWORDS = [
+  'ar/', 'vr/', 'xr/', 'augmented reality', 'virtual reality', 'mixed reality',
+  'extended reality', 'spatial computing', 'metaverse', 'immersive',
+  'tender', 'procurement', 'rfp', 'rfq', 'eoi', 'bid',
+  'training simulation', 'digital twin', '3d', 'hmd', 'headset',
+  'smart city', 'smart classroom', 'vr lab', 'ar lab',
+  'industrial ', 'manufacturing ', 'factory ', 'plant ',
+  'school', 'college', 'university', 'education',
+  'government', 'municipal', 'corporation', 'public sector',
+  'chennai', 'tamil nadu', 'india', 'bengaluru', 'hyderabad',
+  'enterprise', 'b2b', 'solution provider', 'vendor',
+];
+
+function areResultsRelevant(results: Array<{ snippet?: string; name?: string; url?: string; host_name?: string }>): boolean {
+  if (!results || results.length === 0) return false;
+  const text = results
+    .map((r) => `${r.name || ''} ${r.snippet || ''} ${r.host_name || ''} ${r.url || ''}`)
+    .join(' ')
+    .toLowerCase();
+  const matchCount = RELEVANCE_KEYWORDS.filter((kw) => text.includes(kw)).length;
+  return matchCount >= 2;
+}
+
+async function performWebSearch(query: string): Promise<{ context: string; results: Array<{ snippet?: string; name?: string; url?: string; host_name?: string; date?: string }> }> {
   try {
     const zai = await ZAI.create();
-    const results = await zai.functions.invoke('web_search', { query, num: 8 });
+    const results = await zai.functions.invoke('web_search', { query, num: 10 }) as Array<Record<string, string>>;
 
     if (!Array.isArray(results) || results.length === 0) {
-      return '';
+      return { context: '', results: [] };
     }
 
-    // Format search results as context for the LLM
-    const formatted = results
-      .slice(0, 8)
-      .map((r: { name?: string; snippet?: string; url?: string; date?: string; host_name?: string }, i: number) => {
-        const source = r.host_name || r.name || new URL(r.url || '').hostname;
-        const date = r.date ? ` (${r.date})` : '';
-        return `[${i + 1}] ${r.name || 'Untitled'}${date}\n    Source: ${source}\n    ${r.snippet || 'No description available.'}`;
-      })
-      .join('\n\n');
-
-    return `WEB SEARCH RESULTS (live data, use as your primary source):\n\n${formatted}\n\nINSTRUCTIONS: Use ONLY the above search results to answer. Cite source names. Do not fabricate information not found in the results. If the results are insufficient, say so and suggest a more specific search query.`;
+    return { context: formatSearchResults(results), results };
   } catch (error) {
     console.error('Web search failed:', error);
-    return '';
+    return { context: '', results: [] };
   }
 }
 
-function generateSearchQuery(message: string): string {
-  // Enhance the user's message into a better search query
-  let query = message;
+function formatSearchResults(results: Array<Record<string, string>>): string {
+  const formatted = results
+    .slice(0, 8)
+    .map((r, i) => {
+      const source = r.host_name || r.name || (r.url ? new URL(r.url).hostname : 'Unknown');
+      const date = r.date ? ` (${r.date})` : '';
+      return `[${i + 1}] ${r.name || 'Untitled'}${date}\n    Source: ${source}\n    ${r.snippet || 'No description available.'}`;
+    })
+    .join('\n\n');
 
-  // Add context if the message is vague
-  if (message.length < 30) {
-    query = `${message} AR VR solutions 2025 India Chennai Madras MindWorks`;
-  } else if (!/20(24|25)/.test(message)) {
-    query = `${message} 2025`;
+  return `WEB SEARCH RESULTS (live data, use as your primary source):\n\n${formatted}\n\nINSTRUCTIONS: Use ONLY the above search results to answer. Cite source names. Do not fabricate information not found in the results. If the results are insufficient, say so and suggest a more specific search query.`;
+}
+
+function generateSearchQueries(message: string): string[] {
+  const lower = message.toLowerCase();
+  const year = new Date().getFullYear();
+
+  // Extract the core topic by removing common verbs
+  const topic = message
+    .replace(/^(?:find|search|research|look (?:up|into|for)|get me|show me|fetch|identify|discover|list|tell me about|what are|who are|can you|please)\s+/i, '')
+    .replace(/[?!.]+$/, '')
+    .trim();
+
+  const queries: string[] = [];
+
+  // Query 1: Direct topic + AR/VR domain + year
+  queries.push(`${topic} AR VR ${year} India`);
+
+  // Detect intent and build specialized queries
+  if (/tender|procurement|rfp|rfq|eoi|bid|proposal/i.test(lower)) {
+    queries.push(`AR VR tender ${year} Tamil Nadu India government procurement`);
+    queries.push(`augmented reality virtual reality RFP ${year} India education manufacturing`);
   }
 
-  return query;
+  if (/client|prospect|lead|requirement|problem statement/i.test(lower)) {
+    queries.push(`AR VR clients requirements ${year} India manufacturing education`);
+    queries.push(`companies looking for AR VR solutions ${year} India enterprise`);
+  }
+
+  if (/email|contact|reach out/i.test(lower)) {
+    queries.push(`${topic} contact email CTO innovation head ${year}`);
+  }
+
+  if (/competitor|market/i.test(lower)) {
+    queries.push(`AR VR companies India ${year} market share competitors`);
+  }
+
+  if (/factory|manufacturing|industrial|plant/i.test(lower)) {
+    queries.push(`AR VR manufacturing training India ${year} factory digital twin`);
+  }
+
+  if (/school|college|education|university/i.test(lower)) {
+    queries.push(`VR education lab setup India ${year} school college smart classroom`);
+  }
+
+  if (/government|smart city|municipal/i.test(lower)) {
+    queries.push(`AR VR smart city India ${year} government tender digital transformation`);
+  }
+
+  // Ensure at least 2 queries
+  if (queries.length < 2) {
+    queries.push(`AR VR AI solutions ${year} Chennai Tamil Nadu India`);
+  }
+
+  return queries;
 }
 
 export async function POST(request: NextRequest) {
@@ -120,10 +189,26 @@ export async function POST(request: NextRequest) {
     // Determine if web search is needed
     const needsSearch = shouldTriggerSearch(message);
     let searchContext = '';
+    let searchQueryUsed = '';
 
     if (needsSearch) {
-      const searchQuery = generateSearchQuery(message);
-      searchContext = await performWebSearch(searchQuery);
+      const queries = generateSearchQueries(message);
+
+      // Try queries in order until we get relevant results
+      for (const query of queries) {
+        const { context, results } = await performWebSearch(query);
+        searchQueryUsed = query;
+
+        if (context && areResultsRelevant(results)) {
+          searchContext = context;
+          break;
+        }
+
+        // If no relevance filter passed but we got results, use them if it's the last query
+        if (!searchContext && query === queries[queries.length - 1] && context) {
+          searchContext = context;
+        }
+      }
     }
 
     // Build messages array for LLM
@@ -136,7 +221,13 @@ export async function POST(request: NextRequest) {
     if (searchContext) {
       llmMessages.push({
         role: 'assistant',
-        content: `[AMOS performed a live web search for: "${message}"]\n\n${searchContext}`,
+        content: `[AMOS performed a live web search]\nSearch query: "${searchQueryUsed}"\n\n${searchContext}`,
+      });
+    } else if (needsSearch) {
+      // Search was triggered but returned no relevant results — tell the LLM
+      llmMessages.push({
+        role: 'assistant',
+        content: `[AMOS attempted a web search but could not find relevant results. The search queries tried were domain-specific to AR/VR/AI. Do NOT fabricate any data. Instead, acknowledge the limitation and suggest the user try a more specific query or use the Competitor Intel section for manual searches.]`,
       });
     }
 
