@@ -3,14 +3,18 @@ import { db } from '@/lib/db';
 import { chatCompletion, getAIProvider } from '@/lib/ai-provider';
 
 const GENERATION_PROMPTS: Record<string, string> = {
-  email: `You are AMOS, the Autonomous Marketing Operating System for Madras MindWorks (AR/VR/AI solutions, Chennai, India). Write a professional cold outreach email for AR/VR services. The email should be:
-- Personalized and concise
-- Focus on business value and ROI
-- Include a clear call to action
-- Professional but not stiff
-- Mention Madras MindWorks as the sender
+  email: `You are AMOS, the Autonomous Marketing Operating System for Madras MindWorks (AR/VR/AI solutions, Chennai, India).
 
-Context: {context}`,
+CRITICAL RULES:
+1. Output ONLY the email body text. Do NOT include a subject line.
+2. Do NOT include placeholder text like [industry/field] or [Your Contact Information]. Fill in everything with realistic details.
+3. The email must be highly specific to the subject/context provided — NOT a generic template.
+4. Keep it concise (150-250 words max).
+5. Mention Madras MindWorks as the sender.
+6. Include a clear, specific call to action.
+
+Context:
+{context}`,
 
   social_linkedin: `You are AMOS, the Autonomous Marketing Operating System for Madras MindWorks (AR/VR/AI solutions, Chennai, India). Write a LinkedIn post that:
 - Is engaging and professional
@@ -42,9 +46,7 @@ Context: {context}`,
 
 // Fallback content when AI is not available
 const FALLBACK_CONTENT: Record<string, string> = {
-  email: `Subject: Transform Your Operations with AR/VR Solutions
-
-Dear [Recipient Name],
+  email: `Dear {recipient_name},
 
 I hope this message finds you well. I'm reaching out from Madras MindWorks, a Chennai-based AR/VR/AI solutions company.
 
@@ -58,9 +60,9 @@ I'd love to schedule a brief 15-minute call to explore how AR/VR could benefit y
 Would next Tuesday or Wednesday work for you?
 
 Best regards,
-[Your Name]
+Sriram
 Madras MindWorks
-www.madrasmindworks.com`,
+Chennai, India`,
 
   social_linkedin: `🏭 Is your factory still using 2D manuals for maintenance training?
 

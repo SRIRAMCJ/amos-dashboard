@@ -151,6 +151,7 @@ export default function EmailView() {
   const handleAIGenerate = async () => {
     const toName = getValues('toName')
     const toEmail = getValues('toEmail')
+    const subject = getValues('subject')
     if (!toName) {
       toast.error('Please enter recipient name first for better AI context')
       return
@@ -158,7 +159,13 @@ export default function EmailView() {
 
     setIsGenerating(true)
     try {
-      const context = `Recipient: ${toName} (${toEmail || 'no email'}). ${getValues('subject') ? `Subject context: ${getValues('subject')}` : 'No specific subject provided.'} Generate a cold outreach email for Madras MindWorks AR/VR/AI services.`
+      const contextParts = [`Recipient: ${toName} (${toEmail || 'no email'}).`]
+      if (subject) {
+        contextParts.push(`The user wants the email to be about: "${subject}". Write the email body specifically about this topic. Do NOT change the subject.`)
+      } else {
+        contextParts.push('No specific subject — write a relevant cold outreach for AR/VR/AI services.')
+      }
+      const context = contextParts.join(' ')
 
       const res = await fetch('/api/ai-generate', {
         method: 'POST',
@@ -168,20 +175,24 @@ export default function EmailView() {
       if (!res.ok) throw new Error('Failed to generate email')
 
       const data = await res.json()
-      const generatedContent = data.content || ''
+      let generatedContent = data.content || ''
 
-      // Try to extract subject from first line if it looks like a subject
+      // Strip any subject line the AI might still generate (defensive)
       const lines = generatedContent.split('\n')
-      let subjectLine = ''
-      let bodyText = generatedContent
+      const filteredLines = lines.filter((l: string) => {
+        const trimmed = l.trim()
+        return trimmed && !/^subject:\s*/i.test(trimmed)
+      })
+      const bodyText = filteredLines.join('\n').trim()
 
-      if (lines.length > 1 && lines[0].length < 100 && !lines[0].startsWith('Dear') && !lines[0].startsWith('Hi')) {
-        subjectLine = lines[0].replace(/^Subject:\s*/i, '').trim()
-        bodyText = lines.slice(1).join('\n').trim()
+      // NEVER overwrite user's subject — only set if empty
+      if (!subject) {
+        const maybeSubject = lines.find((l: string) => /^subject:\s*/i.test(l.trim()))
+        if (maybeSubject) {
+          setValue('subject', maybeSubject.replace(/^subject:\s*/i, '').trim())
+        }
       }
 
-      if (subjectLine) setValue('subject', subjectLine)
-      if (!getValues('subject') && subjectLine) setValue('subject', subjectLine)
       setValue('body', bodyText || generatedContent)
 
       toast.success('Email generated successfully')
