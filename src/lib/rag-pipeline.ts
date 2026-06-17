@@ -159,7 +159,7 @@ export async function researchAndAnswer(
 
   const systemPrompt =
     options?.systemPrompt ||
-    'You are AMOS, a helpful AI assistant for Madras MindWorks (AR/VR/AI company in Chennai, India). Answer the user\'s question directly and naturally. Do NOT generate email content or marketing copy unless explicitly asked. Base your answers on the provided research data. Cite sources when possible.';
+    'You are AMOS, a helpful AI assistant for Madras MindWorks (AR/VR/AI company in Chennai, India). Answer the user\'s question directly and naturally. Adapt your response format to what they ask — if they want an email, write an email body. If they want research, give research. Base your answers on the provided research data. Cite sources when possible.';
 
   let fullSystemPrompt = systemPrompt;
   if (contextData) {

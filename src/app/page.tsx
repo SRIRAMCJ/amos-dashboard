@@ -14,6 +14,7 @@ import { BlogView } from '@/components/amos/blog-view'
 import { ActivityView } from '@/components/amos/activity-view'
 import { SettingsView } from '@/components/amos/settings-view'
 import { AnalyticsView } from '@/components/amos/analytics-view'
+import { cn } from '@/lib/utils'
 
 export default function AmosDashboard() {
   const activeView = useAmosStore((s) => s.activeView)
@@ -56,14 +57,19 @@ export default function AmosDashboard() {
         <DashboardHeader />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className={cn(
+          'flex-1 overflow-y-auto',
+          activeView === 'chat' ? 'p-0' : 'p-4 md:p-6'
+        )}>
           {renderView()}
         </main>
 
-        {/* Sticky Footer */}
-        <footer className="border-t bg-background px-4 py-2 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Madras MindWorks — AMOS Autonomous Marketing Operating System
-        </footer>
+        {/* Sticky Footer (hidden in chat view for more space) */}
+        {activeView !== 'chat' && (
+          <footer className="border-t bg-background px-4 py-2 text-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Madras MindWorks — AMOS Dashboard
+          </footer>
+        )}
       </div>
     </div>
   )

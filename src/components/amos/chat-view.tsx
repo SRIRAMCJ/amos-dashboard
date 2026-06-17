@@ -21,7 +21,11 @@ const SUGGESTED_COMMANDS = [
 
 function formatTime(ts: number): string {
   const d = new Date(ts)
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  let hours = d.getHours()
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12 || 12
+  return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`
 }
 
 function TypingDots() {
@@ -189,9 +193,9 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* ── Header ── */}
-      <header className="flex items-center justify-between border-b px-4 py-3 sm:px-6 shrink-0">
+      <header className="flex items-center justify-between border-b px-4 py-3 sm:px-6 shrink-0 min-h-[52px]">
         <div className="flex items-center gap-2.5">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Bot className="size-4" />
@@ -217,7 +221,7 @@ export function ChatView() {
           variant="ghost"
           size="sm"
           onClick={handleNewChat}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground shrink-0"
         >
           <RotateCcw className="size-4" />
           <span className="hidden sm:inline">New Chat</span>
