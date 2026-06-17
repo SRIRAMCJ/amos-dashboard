@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { chatCompletion, getAIProvider } from '@/lib/ai-provider';
+import { getAIProvider } from '@/lib/ai-provider';
+import { researchAndAnswer } from '@/lib/rag-pipeline';
 
 const TODAY = new Date().toLocaleDateString('en-IN', {
   timeZone: 'Asia/Calcutta',
@@ -18,8 +19,7 @@ RULES:
 2. For specific companies/tenders, clearly state your info may not be current and recommend verification.
 3. Current year is ${new Date().getFullYear()}. Don't use past dates as "current".
 4. Provide strategic, actionable marketing intelligence.
-5. Tone: Strategic, concise, autonomous, professional. You are an operating system, not a chatbot.
-6. Live web search is not available. When asked about current info, note this limitation.`;
+5. Tone: Strategic, concise, autonomous, professional. You are an operating system, not a chatbot.`;
 
 interface ChatMessage { role: 'user' | 'assistant' | 'system'; content: string; }
 
@@ -63,17 +63,16 @@ Would you like guidance on any of these areas?`;
       return NextResponse.json({ response: fb, sessionId: currentSessionId, searchPerformed: false, aiProvider: 'none' });
     }
 
-    // AI available — build messages and call LLM
-    const msgs: ChatMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history.slice(-10), // Keep last 10 messages for context
-      { role: 'user', content: message },
-    ];
+    // AI available — use RAG pipeline for full search → scrape → analyze
+    const result = await researchAndAnswer(message, {
+      systemPrompt: SYSTEM_PROMPT,
+      conversationHistory: history,
+    });
 
-    const { content: response } = await chatCompletion(msgs);
+    const { answer, sources, steps, provider: ragProvider } = result;
 
     history.push({ role: 'user', content: message });
-    history.push({ role: 'assistant', content: response });
+    history.push({ role: 'assistant', content: answer });
 
     try {
       if (currentSessionId) {
@@ -83,11 +82,18 @@ Would you like guidance on any of these areas?`;
         currentSessionId = s.id;
       }
       await db.activityLog.create({
-        data: { action: 'chat_command', description: `Chat: ${message.substring(0, 200)}`, metadata: JSON.stringify({ provider }) },
+        data: { action: 'chat_command', description: `Chat: ${message.substring(0, 200)}`, metadata: JSON.stringify({ provider: ragProvider, searchPerformed: steps.some(s => s.type === 'search') }) },
       });
     } catch { /* ignore */ }
 
-    return NextResponse.json({ response, sessionId: currentSessionId, searchPerformed: false, aiProvider: provider });
+    return NextResponse.json({
+      response: answer,
+      sessionId: currentSessionId,
+      searchPerformed: steps.some(s => s.type === 'search'),
+      aiProvider: ragProvider,
+      sources,
+      steps,
+    });
   } catch (error) {
     console.error('Chat error:', error);
     const errMsg = error instanceof Error ? error.message : 'Unknown error';

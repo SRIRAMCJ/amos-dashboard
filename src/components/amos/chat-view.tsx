@@ -1,12 +1,12 @@
 'use client'
 
-import { useAmosStore } from '@/store/amos-store'
+import { useAmosStore, type ResearchStep, type ResearchSource } from '@/store/amos-store'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Send, Bot, User, RotateCcw, Sparkles, Search } from 'lucide-react'
+import { Send, Bot, User, RotateCcw, Sparkles, Search, Globe, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SUGGESTED_COMMANDS = [
@@ -39,14 +39,59 @@ function TypingDots() {
   )
 }
 
+function SourcesList({ sources }: { sources: ResearchSource[] }) {
+  const [expanded, setExpanded] = useState(false)
+  if (sources.length === 0) return null
+
+  return (
+    <div className="mt-1.5">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      >
+        {expanded ? <ChevronUp className="size-2.5" /> : <ChevronDown className="size-2.5" />}
+        <span className="font-medium">{sources.length} source{sources.length > 1 ? 's' : ''}</span>
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5 pl-4">
+          {sources.map((source, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className={cn(
+                'size-1.5 rounded-full shrink-0',
+                source.type === 'scraped' ? 'bg-emerald-500' : source.type === 'web' ? 'bg-sky-500' : 'bg-amber-500'
+              )} />
+              {source.url ? (
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-primary hover:underline truncate max-w-[220px]"
+                >
+                  {source.title}
+                </a>
+              ) : (
+                <span className="truncate max-w-[220px]">{source.title}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ChatView() {
   const {
     chatMessages,
     chatSessionId,
     isChatLoading,
+    researchSteps,
+    researchSources,
     addChatMessage,
     setChatSessionId,
     setIsChatLoading,
+    setResearchSteps,
+    setResearchSources,
     clearChat,
   } = useAmosStore()
 
@@ -61,7 +106,7 @@ export function ChatView() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [chatMessages, isChatLoading, scrollToBottom])
+  }, [chatMessages, isChatLoading, researchSteps, scrollToBottom])
 
   // Reset textarea height when chat is cleared
   useEffect(() => {
@@ -78,6 +123,8 @@ export function ChatView() {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+    setResearchSteps([])
+    setResearchSources([])
     setIsChatLoading(true)
     try {
       const res = await fetch('/api/chat', {
@@ -87,6 +134,11 @@ export function ChatView() {
       })
       const data = await res.json()
       if (data.sessionId) setChatSessionId(data.sessionId)
+
+      // Set research steps and sources from the response
+      if (data.steps) setResearchSteps(data.steps)
+      if (data.sources) setResearchSources(data.sources)
+
       if (data.error && !data.response) {
         addChatMessage({
           role: 'assistant',
@@ -99,6 +151,7 @@ export function ChatView() {
           content: data.response || 'No response received.',
           timestamp: Date.now(),
           searched: !!data.searchPerformed,
+          sources: data.sources || [],
         })
       }
     } catch {
@@ -189,8 +242,8 @@ export function ChatView() {
               </div>
               <h3 className="text-lg font-semibold">How can AMOS help you today?</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Your AI-powered AR/VR business assistant. Ask me anything about leads,
-                outreach, content, or market research.
+                Your AI-powered AR/VR business assistant with live web research.
+                Ask me anything about leads, outreach, content, or market research.
               </p>
             </div>
             <div className="w-full max-w-2xl">
@@ -262,6 +315,10 @@ export function ChatView() {
                   {formatTime(msg.timestamp)}
                 </span>
               </div>
+              {/* Show sources for assistant messages */}
+              {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                <SourcesList sources={msg.sources} />
+              )}
             </div>
 
             {/* User avatar */}
@@ -273,8 +330,29 @@ export function ChatView() {
           </div>
         ))}
 
-        {/* Loading indicator */}
-        {isChatLoading && (
+        {/* Research progress indicator */}
+        {isChatLoading && researchSteps.length > 0 && (
+          <div className="flex gap-3 justify-start">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground mt-0.5">
+              <Bot className="size-4" />
+            </div>
+            <div className="bg-card border shadow-sm rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
+              {researchSteps.map((step: ResearchStep, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {step.type === 'search' && <Search className="size-3 text-sky-500 shrink-0" />}
+                  {step.type === 'scrape' && <Globe className="size-3 text-emerald-500 shrink-0" />}
+                  {step.type === 'analyze' && <Sparkles className="size-3 text-amber-500 shrink-0" />}
+                  {step.type === 'thinking' && <Sparkles className="size-3 text-violet-500 shrink-0" />}
+                  <span>{step.detail || step.label}</span>
+                </div>
+              ))}
+              <TypingDots />
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator (fallback when no research steps) */}
+        {isChatLoading && researchSteps.length === 0 && (
           <div className="flex gap-3 justify-start">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground mt-0.5">
               <Bot className="size-4" />
@@ -312,7 +390,7 @@ export function ChatView() {
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-2">
-          AMOS is an AI assistant. Responses may not always be accurate.
+          AMOS is an AI assistant with live web research. Responses may not always be accurate.
         </p>
       </div>
     </div>

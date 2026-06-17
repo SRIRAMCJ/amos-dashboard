@@ -10,7 +10,7 @@
  * No credit card required for either.
  */
 
-export type AIProvider = 'groq' | 'huggingface' | 'none';
+export type AIProvider = 'ollama' | 'groq' | 'huggingface' | 'none';
 
 let _cachedProvider: AIProvider | null = null;
 
@@ -19,6 +19,13 @@ let _cachedProvider: AIProvider | null = null;
 export async function getAIProvider(): Promise<{ provider: AIProvider }> {
   if (_cachedProvider !== null) {
     return { provider: _cachedProvider };
+  }
+
+  // Highest priority: Ollama (local, free, private)
+  if (process.env.OLLAMA_BASE_URL || (await isOllamaRunning())) {
+    _cachedProvider = 'ollama';
+    console.log('[AI Provider] Using Ollama (local inference — free, private, no API key needed)');
+    return { provider: 'ollama' };
   }
 
   // Prefer Groq (faster, no cold start)
@@ -36,7 +43,7 @@ export async function getAIProvider(): Promise<{ provider: AIProvider }> {
   }
 
   _cachedProvider = 'none';
-  console.warn('[AI Provider] No AI provider available. Set GROQ_API_KEY (recommended) or HF_TOKEN env var.');
+  console.warn('[AI Provider] No AI provider available. Set OLLAMA_BASE_URL (local), GROQ_API_KEY (recommended) or HF_TOKEN env var.');
   return { provider: 'none' };
 }
 
@@ -53,6 +60,7 @@ export async function chatCompletion(
 ): Promise<{ content: string; provider: AIProvider }> {
   const { provider } = await getAIProvider();
 
+  if (provider === 'ollama') return ollamaChat(messages, options?.maxTokens);
   if (provider === 'groq') {
     return groqChat(messages, options?.maxTokens);
   }
@@ -61,6 +69,47 @@ export async function chatCompletion(
   }
 
   throw new Error('NO_AI_PROVIDER');
+}
+
+// ── Ollama Implementation (local inference, highest priority) ───────────────
+
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3:8b';
+const OLLAMA_API_URL = `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/chat`;
+
+async function isOllamaRunning(): Promise<boolean> {
+  try {
+    const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function ollamaChat(
+  messages: ChatMsg[],
+  maxTokens?: number
+): Promise<{ content: string; provider: AIProvider }> {
+  const res = await fetch(OLLAMA_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      stream: false,
+      options: { num_predict: maxTokens || 4096, temperature: 0.7 },
+    }),
+    signal: AbortSignal.timeout(120000), // 2 min timeout for local inference
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ollama error (${res.status})`);
+  }
+
+  const data = await res.json();
+  const content = data?.message?.content || 'No response generated.';
+
+  return { content, provider: 'ollama' };
 }
 
 // ── Groq Implementation (Llama 3.1 8B — FAST, no cold start) ──────────────

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { ResearchStep, ResearchSource } from '@/lib/rag-pipeline'
 
 // Types
 export type ActiveView = 'dashboard' | 'chat' | 'leads' | 'emails' | 'social' | 'analytics' | 'search' | 'blogs' | 'activities' | 'settings'
@@ -8,6 +9,7 @@ export interface ChatMessage {
   content: string
   timestamp: number
   searched?: boolean
+  sources?: ResearchSource[]
 }
 
 export interface Lead {
@@ -147,6 +149,12 @@ export interface AmosState {
   setIsChatLoading: (loading: boolean) => void
   clearChat: () => void
 
+  // Research
+  researchSteps: ResearchStep[]
+  setResearchSteps: (steps: ResearchStep[]) => void
+  researchSources: ResearchSource[]
+  setResearchSources: (sources: ResearchSource[]) => void
+
   // Data
   leads: Lead[]
   setLeads: (leads: Lead[]) => void
@@ -191,7 +199,13 @@ export const useAmosStore = create<AmosState>((set) => ({
   setChatSessionId: (id) => set({ chatSessionId: id }),
   setIsChatLoading: (loading) => set({ isChatLoading: loading }),
   clearChat: () =>
-    set({ chatMessages: [], chatSessionId: null }),
+    set({ chatMessages: [], chatSessionId: null, researchSteps: [], researchSources: [] }),
+
+  // Research
+  researchSteps: [],
+  setResearchSteps: (steps) => set({ researchSteps: steps }),
+  researchSources: [],
+  setResearchSources: (sources) => set({ researchSources: sources }),
 
   // Data
   leads: [],

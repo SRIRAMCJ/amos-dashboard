@@ -4,13 +4,14 @@ import { useAmosStore, type SearchResult } from '@/store/amos-store'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { Search, Globe, ExternalLink, Loader2, Sparkles } from 'lucide-react'
+import { Search, Globe, ExternalLink, Loader2, Sparkles, Brain } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import ReactMarkdown from 'react-markdown'
 
 const QUICK_CHIPS = [
   'AR/VR competitors India',
@@ -22,6 +23,8 @@ const QUICK_CHIPS = [
 export function SearchView() {
   const { searchResults, setSearchResults, isSearching, setIsSearching } = useAmosStore()
   const [query, setQuery] = useState('AR VR AI competitors India 2025')
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
 
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -30,6 +33,7 @@ export function SearchView() {
     }
     setIsSearching(true)
     setSearchResults([])
+    setAiAnalysis(null)
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -37,18 +41,29 @@ export function SearchView() {
         body: JSON.stringify({ query: searchQuery })
       })
       const data = await res.json()
-      if (data.error) {
+      if (data.error && data.fallback) {
+        toast.info(data.error)
+        setSearchResults([])
+      } else if (data.error) {
         toast.error(data.error)
         setSearchResults([])
       } else {
-        setSearchResults(data.results || [])
+        const results = data.results || []
+        setSearchResults(results)
         if (data.aiAnalysis) {
           toast.success('AI analysis complete')
+          // Extract the AI analysis snippet from the first result
+          const aiResult = results.find((r: SearchResult) => r.url?.startsWith('ai-analysis://'))
+          if (aiResult) {
+            setAiAnalysis(aiResult.snippet)
+          }
         }
-        if (data.fallback) {
-          toast.info('AI search requires a free GROQ_API_KEY or HF_TOKEN env var. Add it in Vercel settings.')
+        if (results.length > 1) {
+          toast.success(`${results.length - 1} web results found`)
+        } else if (results.length === 1 && data.aiAnalysis) {
+          toast.success('AI analysis complete')
         }
-        if (!data.results?.length && !data.fallback && !data.aiAnalysis) {
+        if (!results.length && !data.fallback && !data.aiAnalysis) {
           toast.info('No results found for this query.')
         }
       }
@@ -58,6 +73,29 @@ export function SearchView() {
       setIsSearching(false)
     }
   }, [setIsSearching, setSearchResults])
+
+  const analyzeWithAI = useCallback(async () => {
+    if (searchResults.length === 0) return
+    setIsAnalyzing(true)
+    try {
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      })
+      const data = await res.json()
+      if (data.answer) {
+        setAiAnalysis(data.answer)
+        toast.success('Deep research complete')
+      } else if (data.error) {
+        toast.error(data.error)
+      }
+    } catch {
+      toast.error('AI analysis failed. Please try again.')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }, [searchResults, query])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,17 +113,27 @@ export function SearchView() {
     }
   }
 
+  // Count non-AI results
+  const realResultCount = searchResults.filter((r) => !r.url?.startsWith('ai-analysis://')).length
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-amber-500" />
-          Competitor Intel
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Search the web for competitor insights, market trends, and industry intelligence.
-        </p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-amber-500" />
+            Competitor Intel
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Search the web for competitor insights, market trends, and industry intelligence.
+          </p>
+        </div>
+        {realResultCount > 0 && (
+          <Badge variant="secondary" className="text-sm">
+            {realResultCount} result{realResultCount > 1 ? 's' : ''} found
+          </Badge>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -138,6 +186,24 @@ export function SearchView() {
         ))}
       </div>
 
+      {/* AI Analysis Card */}
+      {aiAnalysis && (
+        <Card className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="size-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                {isAnalyzing ? 'Deep Research...' : 'AI Analysis'}
+              </span>
+              {isAnalyzing && <Loader2 className="size-3 animate-spin text-amber-600" />}
+            </div>
+            <div className="prose prose-sm max-w-none dark:prose-invert text-sm text-foreground/90 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5">
+              <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Results Area */}
       <div className="max-h-[600px] overflow-y-auto rounded-lg border bg-background">
         <ScrollArea className="h-full">
@@ -161,6 +227,24 @@ export function SearchView() {
               {searchResults.map((result: SearchResult, index: number) => (
                 <SearchResultCard key={result.url + index} result={result} truncateUrl={truncateUrl} />
               ))}
+              {/* Analyze with AI button at bottom of results */}
+              {realResultCount > 0 && !aiAnalysis && (
+                <div className="p-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={analyzeWithAI}
+                    disabled={isAnalyzing}
+                    className="gap-2"
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Brain className="size-4" />
+                    )}
+                    Analyze with AI
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
