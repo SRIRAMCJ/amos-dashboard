@@ -37,7 +37,7 @@ export async function webSearch(
         num: options?.num || 10,
         recencyDays: options?.recencyDays,
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(process.env.NODE_ENV === 'production' ? 3000 : 15000),
     });
     if (!res.ok) throw new Error(`Search service error: ${res.status}`);
     return await res.json();

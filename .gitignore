@@ -69,3 +69,4 @@ worklog.md
 # Z-ai internal
 .zscripts/.env
 .env
+upload/

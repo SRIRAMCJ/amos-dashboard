@@ -21,8 +21,8 @@ export async function getAIProvider(): Promise<{ provider: AIProvider }> {
     return { provider: _cachedProvider };
   }
 
-  // Highest priority: Ollama (local, free, private)
-  if (process.env.OLLAMA_BASE_URL || (await isOllamaRunning())) {
+  // Highest priority: Ollama (local, free, private) — skip check on Vercel/production
+  if (process.env.OLLAMA_BASE_URL || (process.env.NODE_ENV !== 'production' && (await isOllamaRunning()))) {
     _cachedProvider = 'ollama';
     console.log('[AI Provider] Using Ollama (local inference — free, private, no API key needed)');
     return { provider: 'ollama' };
