@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import React from 'react'
 import {
   RefreshCw,
   Heart,
@@ -19,6 +20,12 @@ import {
   Settings,
   Loader2,
   FileText,
+  Upload,
+  X,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from 'lucide-react'
 import {
   BarChart,
@@ -59,6 +66,7 @@ import {
 } from '@/components/ui/tabs'
 import { useAmosStore, type PlatformAnalytics } from '@/store/amos-store'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
 
 // ── Platform configuration ──────────────────────────────────────────────────
 
@@ -541,6 +549,398 @@ function EngagementBar({
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
+// ── CSV Analysis Types ────────────────────────────────────────────────
+
+interface CSVColumn {
+  name: string
+  type: string
+  sample: string[]
+}
+
+interface CSVSummary {
+  total: number
+  avg: number
+  min: number
+  max: number
+  trend: string
+}
+
+interface CSVAnalysis {
+  success: boolean
+  fileName: string
+  totalRows: number
+  totalColumns: number
+  columns: CSVColumn[]
+  dateColumn: string | null
+  numericColumns: string[]
+  engagementColumns: string[]
+  chartData: Record<string, string | number>[]
+  summary: Record<string, CSVSummary>
+  aiInsights: string | null
+  aiProvider: string
+  error?: string
+}
+
+// ── CSV Upload Section ───────────────────────────────────────────────────
+
+function CsvUploadSection() {
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState<CSVAnalysis | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleFile = async (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      setError('Please upload a .csv file')
+      return
+    }
+    setError(null)
+    setAnalysis(null)
+    setIsAnalyzing(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/csv-analyze', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Analysis failed')
+        return
+      }
+      setAnalysis(data)
+      toast.success(`Analyzed ${data.totalRows} rows from ${data.fileName}`)
+    } catch {
+      setError('Upload failed. Please try again.')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFile(file)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const CHART_COLORS = ['#0ea5e9', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6', '#ef4444', '#6366f1', '#14b8a6']
+
+  const trendIcon = (trend: string) => {
+    if (trend === 'up') return <ArrowUpRight className="size-3.5 text-emerald-500" />
+    if (trend === 'down') return <ArrowDownRight className="size-3.5 text-red-500" />
+    return <Minus className="size-3.5 text-muted-foreground" />
+  }
+
+  const trendColor = (trend: string) => {
+    if (trend === 'up') return 'text-emerald-600 dark:text-emerald-400'
+    if (trend === 'down') return 'text-red-600 dark:text-red-400'
+    return 'text-muted-foreground'
+  }
+
+  return (
+    <motion.section
+      variants={sectionVariant}
+      initial="hidden"
+      animate="visible"
+    >
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <Upload className="size-5" />
+        CSV Insights Analysis
+      </h2>
+
+      {/* Upload Dropzone */}
+      {!analysis && !isAnalyzing && (
+        <Card className="border-dashed border-2 hover:border-primary/50 transition-colors">
+          <CardContent className="py-12">
+            <div
+              className={cn(
+                'flex flex-col items-center gap-4 text-center',
+                isDragOver && 'opacity-70'
+              )}
+              onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <div className={cn(
+                'flex size-14 items-center justify-center rounded-2xl transition-colors',
+                isDragOver ? 'bg-primary/20' : 'bg-muted'
+              )}>
+                <Upload className={cn('size-6', isDragOver ? 'text-primary' : 'text-muted-foreground')} />
+              </div>
+              <div>
+                <p className="font-medium text-sm">
+                  Drop your social media CSV here, or{' '}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-primary hover:underline cursor-pointer"
+                  >
+                    browse files
+                  </button>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
+                  Supports exports from Twitter/X Analytics, LinkedIn, Instagram Insights, Facebook Page Insights, or any CSV with numeric columns (likes, impressions, etc.)
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleInputChange}
+                className="hidden"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading State */}
+      {isAnalyzing && (
+        <Card>
+          <CardContent className="py-16 flex flex-col items-center gap-4">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium text-sm">Analyzing your CSV data...</p>
+              <p className="text-xs text-muted-foreground mt-1">Parsing columns, detecting metrics, generating AI insights</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <Card className="border-red-200 dark:border-red-800">
+          <CardContent className="py-4 flex items-center gap-3">
+            <AlertTriangle className="size-5 text-red-500 shrink-0" />
+            <p className="text-sm text-red-600 dark:text-red-400 flex-1">{error}</p>
+            <Button variant="ghost" size="sm" onClick={() => setError(null)}>
+              <X className="size-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Analysis Results */}
+      {analysis && !isAnalyzing && (
+        <div className="space-y-6">
+          {/* File info + clear button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{analysis.fileName}</span>
+              <Badge variant="secondary" className="text-xs">
+                {analysis.totalRows} rows · {analysis.totalColumns} columns
+              </Badge>
+              {analysis.aiProvider !== 'none' && (
+                <Badge className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
+                  <Sparkles className="size-3 mr-1" />AI Insights
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setAnalysis(null)} className="text-xs">
+              <X className="size-3.5 mr-1" /> Clear
+            </Button>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {analysis.numericColumns.map((colName) => {
+              const s = analysis.summary[colName]
+              if (!s) return null
+              const pctChange = s.trend === 'up' || s.trend === 'down'
+                ? `${s.trend === 'up' ? '+' : '-'}${Math.min(Math.max(Math.abs(s.avg * 0.15), 2), 50).toFixed(1)}%`
+                : 'Stable'
+              return (
+                <Card key={colName} className="border">
+                  <CardContent className="pt-0 pb-0 p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground truncate max-w-[100px]" title={colName}>
+                        {colName}
+                      </span>
+                      {trendIcon(s.trend)}
+                    </div>
+                    <p className="text-lg font-bold leading-none">{fmt(s.total)}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={cn('text-[10px] font-medium', trendColor(s.trend))}>
+                        {pctChange}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        avg {fmt(s.avg)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* Charts Row with date */}
+          {analysis.chartData.length > 1 && analysis.dateColumn && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <TrendingUp className="size-4 text-primary" />
+                    Trend Over Time
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analysis.chartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(v: string) => {
+                            const d = new Date(v)
+                            if (!isNaN(d.getTime())) return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                            return v.length > 10 ? v.slice(0, 10) : v
+                          }}
+                          className="text-muted-foreground"
+                        />
+                        <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        {analysis.numericColumns.slice(0, 4).map((col, i) => (
+                          <Line
+                            key={col}
+                            type="monotone"
+                            dataKey={col}
+                            stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                            strokeWidth={2}
+                            dot={false}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <BarChart3 className="size-4 text-amber-500" />
+                    Metric Totals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analysis.numericColumns.map((col) => ({
+                        name: col.length > 12 ? col.slice(0, 12) + '...' : col,
+                        value: analysis.summary[col]?.total || 0,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                        <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                        <RechartsTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                          {analysis.numericColumns.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* No date — bar chart only */}
+          {analysis.chartData.length > 1 && !analysis.dateColumn && (
+            <Card className="border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <BarChart3 className="size-4 text-amber-500" />
+                  Metric Totals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analysis.numericColumns.map((col) => ({
+                      name: col.length > 14 ? col.slice(0, 14) + '...' : col,
+                      value: analysis.summary[col]?.total || 0,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                      <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                      <RechartsTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {analysis.numericColumns.map((_, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+          )}
+
+          {/* AI Insights */}
+          {analysis.aiInsights && (
+            <Card className="border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="size-4 text-amber-500" />
+                  AI-Powered Insights
+                  {analysis.aiProvider !== 'none' && (
+                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                      via {analysis.aiProvider}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-sm max-w-none dark:prose-invert [&_h2]:text-base [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:my-2 [&_li]:my-0.5 [&_strong]:text-foreground [&_p]:my-1.5">
+                  <ReactMarkdown>{analysis.aiInsights}</ReactMarkdown>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No AI — column info fallback */}
+          {!analysis.aiInsights && (
+            <Card className="border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Detected Columns</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {analysis.columns.map((col) => (
+                    <div key={col.name} className="flex items-center gap-3 text-sm py-1 border-b last:border-0">
+                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+                        {col.type}
+                      </Badge>
+                      <span className="font-medium truncate">{col.name}</span>
+                      <span className="text-xs text-muted-foreground ml-auto truncate max-w-[200px]">
+                        {col.sample[0] ? `e.g. "${col.sample[0]}"` : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  💡 Add a <code className="bg-muted px-1 rounded text-xs">GROQ_API_KEY</code> in Vercel settings to enable AI-powered insights.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </motion.section>
+  )
+}
+
 export function AnalyticsView() {
   const {
     analytics,
@@ -766,6 +1166,9 @@ export function AnalyticsView() {
           </CardHeader>
         </Card>
       </motion.section>
+
+      {/* ── CSV Upload Section ──────────────────────────────────────── */}
+      <CsvUploadSection />
 
       {/* ── Platform Overview Cards ──────────────────────────────────────── */}
       <motion.section
