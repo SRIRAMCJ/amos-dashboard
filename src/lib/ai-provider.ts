@@ -123,25 +123,31 @@ async function groqChat(
 ): Promise<{ content: string; provider: AIProvider }> {
   const apiKey = process.env.GROQ_API_KEY!;
 
-  const res = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      max_tokens: maxTokens || 2048,
-      temperature: 0.7,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        max_tokens: maxTokens || 2048,
+        temperature: 0.7,
+      }),
+    });
+  } catch (error) {
+    throw new Error(`Groq connection failed: ${error instanceof Error ? error.message : 'Network error'}`);
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(
-      `Groq API error (${res.status}): ${JSON.stringify(errorData)}`
-    );
+    const msg = (errorData as Record<string, unknown>)?.error
+      ? ((errorData as Record<string, Record<string, string>>).error?.message || JSON.stringify(errorData))
+      : JSON.stringify(errorData);
+    throw new Error(`Groq API error (${res.status}): ${msg}`);
   }
 
   const data = await res.json();
