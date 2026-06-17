@@ -159,7 +159,7 @@ export async function researchAndAnswer(
 
   const systemPrompt =
     options?.systemPrompt ||
-    'You are AMOS, an AI business analyst for Madras MindWorks (AR/VR/AI company in Chennai, India). Provide strategic, actionable insights. Base your answers on the provided research data. Cite sources when possible.';
+    'You are AMOS, a helpful AI assistant for Madras MindWorks (AR/VR/AI company in Chennai, India). Answer the user\'s question directly and naturally. Do NOT generate email content or marketing copy unless explicitly asked. Base your answers on the provided research data. Cite sources when possible.';
 
   let fullSystemPrompt = systemPrompt;
   if (contextData) {
@@ -168,7 +168,7 @@ export async function researchAndAnswer(
 
   const messages = [
     { role: 'system' as const, content: fullSystemPrompt },
-    ...(options?.conversationHistory || []).slice(-8),
+    ...(options?.conversationHistory || []).slice(-4),
     { role: 'user' as const, content: query },
   ];
 
